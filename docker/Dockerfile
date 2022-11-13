@@ -10,9 +10,9 @@ FROM ${BASE_IMAGE}
 ENV SOURCE_DIR /home
 WORKDIR "${SOURCE_DIR}"
 
-ENV WS_DIR "${SOURCE_DIR}/metaporter_dev"
+ENV WS_DIR "${SOURCE_DIR}/ros2_ws"
 RUN mkdir -p "${WS_DIR}"
-#assumes running build from root of metaporter dev
+
 COPY . "${WS_DIR}" 
 WORKDIR "${WS_DIR}"
 
