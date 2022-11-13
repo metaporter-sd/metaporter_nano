@@ -21,4 +21,4 @@
     ```bash
     bash src/metaporter_nano/scripts/docker_run.sh
     ```
-The container will build all packages, source the setuup files and the workspace. You can directly run ROS nodes from the packages in your workspace. 
+The container will build all packages, source the setuup files, and source the workspace. You can directly run ROS nodes from the packages in your workspace. 
