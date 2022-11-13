@@ -37,7 +37,9 @@ RUN sudo apt-get update && apt-get install -y \
 RUN . /opt/ros/${ROS_DISTRO}/setup.bash \
 	&& colcon build
 
-RUN . install/local_setup.bash
+# Source the workspace and do it for all new terminals
+RUN . install/local_setup.bash \
+	&& echo "source install/local_setup.bash" >> ~/.bashrc
 
 #RUN ros2 run examples_rclcpp_minimal_subscriber subscriber_member_function
 # launch ros package
