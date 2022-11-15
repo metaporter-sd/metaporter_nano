@@ -1,6 +1,6 @@
 # Parameters 
 ARG REPO_NAME="metaporter_nano"
-ARG MAINTAINER="Jehan Shah (jehan.shah8@gmail.com")
+ARG MAINTAINER="Jehan Shah (jehan.shah8@gmail.com"
 ARG DESCRIPTION="Uses an image with ROS 2 humble and adds dependencies for Arducam and other metaporter depndencies"
 ARG ROS_DISTRO=humble
 ARG BASE_IMAGE=ros:humble-ros-base-jammy
@@ -35,7 +35,7 @@ RUN sudo pip3 install stereovision \
 	matplotlib 
 
 # get arducam driver 
-WORKDIR "src/arducam_stereo_camera"
+WORKDIR "/home"
 RUN wget https://github.com/ArduCAM/MIPI_Camera/releases/download/v0.0.3/install_full.sh \
 	&& chmod +x install_full.sh \
 	&& yes | ./install_full.sh -m imx477_stereo 
