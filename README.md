@@ -4,7 +4,7 @@
 
 1. Set up your development environment by following the instructions [here](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_common/blob/main/docs/dev-env-setup.md).  
 
-2. Clone this repository and its dependencies under `~/metaporter_dev/src`.
+2. Clone this repository and its dependencies under `~/workspaces/metaporter_dev/src`.
 
     ```bash
     mkdir -p ~/workspaces/metaporter_dev
