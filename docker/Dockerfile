@@ -1,13 +1,203 @@
+# SPDX-FileCopyrightText: Copyright (c) 2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: MIT
+#
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the "Software"),
+# to deal in the Software without restriction, including without limitation
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+# DEALINGS IN THE SOFTWARE.
+
+
 # Parameters 
 ARG REPO_NAME="metaporter_nano"
 ARG MAINTAINER="Jehan Shah (jehan.shah8@gmail.com"
 ARG DESCRIPTION="Uses an image with ROS 2 humble and adds dependencies for Arducam and other metaporter depndencies"
-ARG ROS_DISTRO=humble
-ARG BASE_IMAGE=ros:humble-ros-base-jammy
-FROM ${BASE_IMAGE} AS builder
 
+
+ARG BASE_IMAGE=nvcr.io/nvidia/l4t-jetpack:r35.1.0
+FROM ${BASE_IMAGE} AS builder
+# Get Jepack based on Ubuntu 20.04
 
 SHELL ["/bin/bash", "-c"]
+
+
+FROM builder AS build1
+
+# Build ROS 2 Humble from source 
+# https://docs.ros.org/en/humble/Installation/Alternatives/Ubuntu-Development-Setup.html
+# https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_common/blob/main/docker/Dockerfile.humble
+
+# Env setup
+RUN apt-get update && apt-get install -y locales
+RUN locale-gen en_US en_US.UTF-8
+RUN update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8
+ENV LANG=en_US.UTF-8
+ENV ROS_PYTHON_VERSION=3
+
+# Basics
+RUN apt-get update && apt-get install -y \
+        curl \
+        gnupg \
+        lsb-release \
+&& rm -rf /var/lib/apt/lists/* \
+&& apt-get clean
+
+RUN apt-get update && apt-get install -y software-properties-common
+
+RUN add-apt-repository universe
+
+# Add ROS2 apt repository
+RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg
+RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2-testing/ubuntu $(source /etc/os-release && echo $UBUNTU_CODENAME) main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null
+
+# Common dev tools and ROS tools
+# ROS fundamentals
+RUN apt-get update && apt-get install -y \
+        build-essential \
+        git \
+        python3-colcon-common-extensions \
+        python3-pip \
+        python3-pybind11 \
+        python3-pytest-cov \
+        python3-rosdep \
+        python3-rosinstall-generator \
+        python3-setuptools \
+        python3-vcstool \
+        wget \
+&& rm -rf /var/lib/apt/lists/* \
+&& apt-get clean
+
+# ROS Python fundamentals
+RUN python3 -m pip install -U \
+        flake8-blind-except \
+        flake8-builtins \
+        flake8-class-newline \
+        flake8-comprehensions \
+        flake8-deprecated \
+        flake8-docstrings \
+        flake8-import-order \
+        flake8-quotes \
+        pytest-repeat \
+        pytest-rerunfailures \
+        pytest \
+        setuptools
+
+# Avoid setup.py and easy_install deprecation warnings caused by colcon and setuptools
+# https://github.com/colcon/colcon-core/issues/454
+ENV PYTHONWARNINGS=ignore:::setuptools.command.install,ignore:::setuptools.command.easy_install,ignore:::pkg_resources
+RUN echo "Warning: Using the PYTHONWARNINGS environment variable to silence setup.py and easy_install deprecation warnings caused by colcon"
+
+ARG ROS_DISTRO=humble
+ENV ROS_ROOT=/opt/ros/${ROS_DISTRO}
+
+# Build ROS2 core from source
+RUN mkdir -p ${ROS_ROOT}/src && \
+	cd ${ROS_ROOT} && \
+	# https://answers.ros.org/question/325245/minimal-ros2-installation/?answer=325249#post-id-325249
+    	rosinstall_generator --deps --rosdistro ${ROS_DISTRO} ros_base \
+        	angles \
+        	apriltag \
+        	behaviortree_cpp_v3 \
+        	bondcpp \
+        	camera_calibration_parsers \
+        	camera_info_manager \
+        	compressed_image_transport \
+        	compressed_depth_image_transport \
+        	cv_bridge \
+        	demo_nodes_cpp \
+        	demo_nodes_py \
+        	diagnostic_updater \
+        	example_interfaces \
+        	image_geometry \
+        	image_pipeline \
+        	image_transport \
+        	image_transport_plugins \
+        	launch_xml \
+        	launch_yaml \
+        	launch_testing \
+        	launch_testing_ament_cmake \
+       		nav2_msgs \
+        	ompl \
+        	resource_retriever \
+        	rosbridge_suite \
+        	rqt_image_view \
+        	rviz2 \
+        	sensor_msgs \
+        	slam_toolbox \
+        	v4l2_camera \
+        	vision_opencv \
+        	vision_msgs \
+		> ros2.${ROS_DISTRO}.ros_base.rosinstall && \
+    	cat ros2.${ROS_DISTRO}.ros_base.rosinstall && \
+    	vcs import src < ros2.${ROS_DISTRO}.ros_base.rosinstall && \
+    	rm ${ROS_ROOT}/*.rosinstall && \
+    	cd ${ROS_ROOT} \
+    	&& apt-get update \
+    	&& rosdep init \
+    	&& rosdep update \
+    	&& rosdep install -y \
+      		--ignore-src \
+      		--from-paths src \
+      		--rosdistro ${ROS_DISTRO} \
+      		--skip-keys "fastcdr rti-connext-dds-6.0.1 rti-connext-dds-5.3.1 urdfdom_headers libopencv-dev libopencv-contrib-dev libopencv-imgproc-dev python-opencv python3-opencv" \
+    	&& rm -Rf /var/lib/apt/lists/* \
+    	&& apt-get clean && \ 
+    	cd ${ROS_ROOT} \
+    	&& colcon build --merge-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo --packages-up-to behaviortree_cpp_v3 \
+    	&& colcon build --merge-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+    	&& rm -Rf src build log
+
+# Alias setup.bash for consistency with pre-built binary installations of ROS2
+RUN echo "source /opt/ros/${ROS_DISTRO}/install/setup.bash ; export ROS_DISTRO=${ROS_DISTRO}" > /opt/ros/${ROS_DISTRO}/setup.bash
+    
+# Restore using the default Humble DDS middleware: FastRTPS
+ENV RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+
+# Install negotiated
+RUN apt-get update && mkdir -p ${ROS_ROOT}/src && cd ${ROS_ROOT}/src \
+    	&& git clone https://github.com/osrf/negotiated && cd negotiated && git checkout master && cd .. \            
+    	&& source ${ROS_ROOT}/setup.bash && cd ${ROS_ROOT} \
+    	&& rosdep install -y -r --ignore-src --from-paths src --rosdistro ${ROS_DISTRO} \
+    	&& colcon build --merge-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo --packages-up-to-regex negotiated* \
+    	&& rm -Rf src logs build \
+    	&& rm -rf /var/lib/apt/lists/* \
+    	&& apt-get clean
+
+
+# change name to build1
+FROM builder as buildX
+
+# Build ROS2 core from source
+RUN mkdir -p ${ROS_ROOT}/src \
+	&& cd ${ROS_ROOT} \
+	&& vcs import --input https://raw.githubusercontent.com/ros2/ros2/humble/ros2.repos src
+
+RUN rosdep init && rosdep update
+RUN rosdep install --from-paths src --ignore-src -y --skip-keys "fastcdr rti-connext-dds-6.0.1 urdfdom_headers" \
+	&& rm -Rf /var/lib/apt/lists/* \
+	&& apt-get clean
+	
+RUN cd ${ROS_ROOT} \
+	&& colcon build --symlink-install \
+	&& rm -rf src build log
+
+# Alias setup.bash for consistency with pre-built binary installations of ROS2
+RUN echo "source /opt/ros/${ROS_DISTRO}/install/setup.bash ; export ROS_DISTRO=${ROS_DISTRO}" > /opt/ros/${ROS_DISTRO}/setup.bash
+
+
+FROM build1 AS build2
 
 # ROS environment 
 ARG ROS_DOMAIN_ID=0
@@ -20,34 +210,12 @@ RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> ~/.bashrc
 RUN export ROS_DOMAIN_ID=${ROS_DOMAIN_ID} 
 
 # Get dependencies
-RUN sudo apt-get update && apt-get install -y \
-	wget \
-	python3-colcon-common-extensions \
-	#~nros-humble-rqt* \
+RUN apt-get update && apt-get install -y \
+	libcanberra-gtk-module \
 	libpython3-dev \
 	&& rm -rf /var/lib/apt/lists/*
 
-# Get Arducam specific dependencies
-RUN wget https://bootstrap.pypa.io/get-pip.py \
-	&& sudo python3 get-pip.py
-
-RUN sudo pip3 install stereovision \ 
-	matplotlib 
-
-# get arducam driver 
-WORKDIR "/home"
-RUN wget https://github.com/ArduCAM/MIPI_Camera/releases/download/v0.0.3/install_full.sh \
-	&& chmod +x install_full.sh \
-	&& yes | ./install_full.sh -m imx477_stereo 
-
-# Arducam driver check
-RUN dmesg | grep imx477
-
-# Arducam connection check
-RUN i2cdetect -r -y 7
-
-
-FROM builder AS build1
+FROM build2 AS build3
 # code environment
 ENV SOURCE_DIR /home/workspaces
 RUN mkdir -p "${SOURCE_DIR}"

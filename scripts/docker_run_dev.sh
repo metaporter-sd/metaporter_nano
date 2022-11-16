@@ -14,7 +14,7 @@ docker run --runtime nvidia -it --rm --network host \
     -v /tmp/.X11-unix/:/tmp/.X11-unix \
     -v $XAUTH:$XAUTH -e XAUTHORITY=$XAUTH \
     -v /tmp/argus_socket:/tmp/argus_socket \
-    -v /home/workspaces/metaporter_dev:/home/workspaces/metaporter_dev \
+    -v /home/metaporter/workspaces/metaporter_dev:/home/workspaces/metaporter_dev \
     $USER_VOLUME $CONTAINER_IMAGE $USER_COMMAND
 
 
