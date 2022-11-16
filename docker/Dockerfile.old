@@ -28,13 +28,6 @@ RUN sudo apt-get update && apt-get install -y \
 	libpython3-dev \
 	&& rm -rf /var/lib/apt/lists/*
 
-# Get Arducam specific dependencies
-RUN wget https://bootstrap.pypa.io/get-pip.py \
-	&& sudo python3 get-pip.py
-
-#RUN sudo pip3 install stereovision \ 
-#	matplotlib 
-
 
 FROM builder AS build1
 # code environment
