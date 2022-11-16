@@ -7,7 +7,7 @@
 2. Clone this repository and its dependencies under `~/metaporter_dev/src`.
 
     ```bash
-    cd ~/metaporter_dev
+    cd ~/workspaces/metaporter_dev
     ```
 
     ```bash
