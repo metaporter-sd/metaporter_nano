@@ -237,8 +237,6 @@ RUN mkdir -p "${WS_DIR}"
 COPY . "${WS_DIR}" 
 WORKDIR "${WS_DIR}"
 
-FROM build3 AS build4
-
 # Build user packages
 RUN . /opt/ros/${ROS_DISTRO}/setup.bash \
 	&& colcon build
