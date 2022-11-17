@@ -6,11 +6,12 @@ Set up your development environment by following the instructions [here](https:/
 
 Clone this repository and its dependencies under `~/workspaces/metaporter_dev/src`.
 
-    ```bash
-    mkdir -p ~/workspaces/metaporter_dev
-    cd ~/workspaces/metaporter_dev
-    git clone https://github.com/jehanshah8/metaporter_nano.git
-    ```
+```bash
+mkdir -p ~/workspaces/metaporter_dev
+cd ~/workspaces/metaporter_dev
+git clone https://github.com/jehanshah8/metaporter_nano.git
+```
+
 If you are on a memory-limited platform such as the Jetson Nano (4GB), increasing the swap size to 6GB is reccomended as it will be required to build ROS packages from source. You can do that by following the instructions [here](https://jetsonhacks.com/2019/04/14/jetson-nano-use-more-memory/).
 
 Build the image using our convinience script
