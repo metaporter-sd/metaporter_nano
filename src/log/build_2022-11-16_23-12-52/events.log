@@ -1,0 +1,4 @@
+[0.000000] (-) TimerEvent: {}
+[0.000960] (-) JobUnselected: {'identifier': 'imu'}
+[0.001100] (-) JobUnselected: {'identifier': 'temp_arducam'}
+[0.001224] (-) EventReactorShutdown: {}
