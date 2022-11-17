@@ -121,10 +121,10 @@ RUN python3 -m pip install -U \
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-		  software-properties-common \
-		  apt-transport-https \
-		  ca-certificates \
-		  gnupg \
+		software-properties-common \
+		apt-transport-https \
+		ca-certificates \
+		gnupg \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 		  	  
@@ -132,7 +132,7 @@ RUN wget -qO - https://apt.kitware.com/keys/kitware-archive-latest.asc | apt-key
     apt-add-repository "deb https://apt.kitware.com/ubuntu/ $(lsb_release -cs) main" && \
     apt-get update && \
     apt-get install -y --no-install-recommends --only-upgrade \
-            cmake \
+        cmake \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
     
@@ -148,8 +148,8 @@ RUN apt purge -y python3.9 libpython3.9* || echo "python3.9 not found, skipping 
 RUN mkdir -p ${ROS_ROOT}/src && \
 	cd ${ROS_ROOT} && \
 	# https://answers.ros.org/question/325245/minimal-ros2-installation/?answer=325249#post-id-325249
-    	rosinstall_generator --deps --rosdistro ${ROS_DISTRO} ${ROS_PKG} \
-        	launch_xml \
+    rosinstall_generator --deps --rosdistro ${ROS_DISTRO} ${ROS_PKG} \
+        launch_xml \
 		launch_yaml \
 		launch_testing \
 		launch_testing_ament_cmake \
@@ -201,9 +201,6 @@ RUN cd ${ROS_ROOT} && colcon build \
 # https://github.com/ros2/rclcpp/issues/1335
 ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 
-
-FROM build1 as build2
-
 # Alias setup.bash for consistency with pre-built binary installations of ROS2
 #RUN echo "source /opt/ros/${ROS_DISTRO}/install/local_setup.bash ; export ROS_DISTRO=${ROS_DISTRO}" > /opt/ros/${ROS_DISTRO}/setup.bash
 
@@ -225,7 +222,7 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /home
 
-FROM build2 AS build3
+FROM build1 as build2
 # code environment
 ENV SOURCE_DIR /home/workspaces
 RUN mkdir -p "${SOURCE_DIR}"
