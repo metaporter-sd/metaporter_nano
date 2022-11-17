@@ -172,9 +172,10 @@ RUN mkdir -p ${ROS_ROOT}/src && \
     vcs import src < ros2.${ROS_DISTRO}.${ROS_PKG}.rosinstall && \
     # https://github.com/dusty-nv/jetson-containers/issues/181
     rm -r ${ROS_ROOT}/src/ament_cmake && \
-    git -C ${ROS_ROOT}/src/ clone https://github.com/ament/ament_cmake -b ${ROS_DISTRO} && \
-	# install dependencies using rosdep
-    apt-get update && \
+    git -C ${ROS_ROOT}/src/ clone https://github.com/ament/ament_cmake -b ${ROS_DISTRO}
+
+# install dependencies using rosdep
+RUN apt-get update && \
     cd ${ROS_ROOT} && \
     rosdep init && \
     rosdep update && \
@@ -184,9 +185,10 @@ RUN mkdir -p ${ROS_ROOT}/src && \
 	  	--rosdistro ${ROS_DISTRO} \
 	  	--skip-keys "libopencv-dev libopencv-contrib-dev libopencv-imgproc-dev python-opencv python3-opencv" && \
     rm -rf /var/lib/apt/lists/* && \
-    apt-get clean && \
-	# build it!
-    colcon build \
+    apt-get clean
+
+# build it!
+RUN cd ${ROS_ROOT} && colcon build \
         --merge-install \
         --cmake-args -DCMAKE_BUILD_TYPE=Release && \
     # remove build files
@@ -203,14 +205,14 @@ ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 FROM build1 as build2
 
 # Alias setup.bash for consistency with pre-built binary installations of ROS2
-RUN echo "source /opt/ros/${ROS_DISTRO}/install/setup.bash ; export ROS_DISTRO=${ROS_DISTRO}" > /opt/ros/${ROS_DISTRO}/setup.bash
+#RUN echo "source /opt/ros/${ROS_DISTRO}/install/local_setup.bash ; export ROS_DISTRO=${ROS_DISTRO}" > /opt/ros/${ROS_DISTRO}/setup.bash
 
 # ROS environment 
 ARG ROS_DOMAIN_ID=0
-RUN . /opt/ros/${ROS_DISTRO}/setup.bash 
+RUN . /opt/ros/humble/install/local_setup.bash 
 
 # Source environment on every bash session
-RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> ~/.bashrc
+RUN echo "source /opt/ros/humble/install/local_setup.bash" >> ~/.bashrc
 
 # Set domain ID
 RUN export ROS_DOMAIN_ID=${ROS_DOMAIN_ID} 
@@ -221,6 +223,7 @@ RUN apt-get update && apt-get install -y \
 	libpython3-dev \
 	&& rm -rf /var/lib/apt/lists/*
 
+WORKDIR /home
 
 FROM build2 AS build3
 # code environment
@@ -234,7 +237,7 @@ RUN mkdir -p "${WS_DIR}"
 COPY . "${WS_DIR}" 
 WORKDIR "${WS_DIR}"
 
-FROM build1 AS build2
+FROM build3 AS build4
 
 # Build user packages
 RUN . /opt/ros/${ROS_DISTRO}/setup.bash \
