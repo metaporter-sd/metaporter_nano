@@ -14,7 +14,7 @@
     ```bash
     git clone https://github.com/jehanshah8/metaporter_nano.git
     ```
-3. Build the container using our convinience script
+3. Build the image using our convinience script
     ```bash
     bash src/metaporter_nano/scripts/docker_build.sh
     ```
