@@ -30,14 +30,23 @@ ARG BASE_IMAGE=nvcr.io/nvidia/l4t-jetpack:r35.1.0
 FROM ${BASE_IMAGE} AS builder
 # Get Jepack based on Ubuntu 20.04
 
-SHELL ["/bin/bash", "-c"]
-
 
 FROM builder AS build1
 
 # Build ROS 2 Humble from source 
 # https://docs.ros.org/en/humble/Installation/Alternatives/Ubuntu-Development-Setup.html
 # https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_common/blob/main/docker/Dockerfile.humble
+# https://github.com/dusty-nv/jetson-containers/blob/master/Dockerfile.ros.humble
+
+ARG ROS_PKG=ros_base
+ARG ROS_DISTRO=humble
+ENV ROS_ROOT=/opt/ros/${ROS_DISTRO}
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV SHELL /bin/bash
+SHELL ["/bin/bash", "-c"]
+
+WORKDIR /tmp
 
 # Env setup
 RUN apt-get update && apt-get install -y locales
@@ -46,38 +55,51 @@ RUN update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8
 ENV LANG=en_US.UTF-8
 ENV ROS_PYTHON_VERSION=3
 
+# set Python3 as default
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 1
+
 # Basics
-RUN apt-get update && apt-get install -y \
-        curl \
-        gnupg \
-        lsb-release \
-&& rm -rf /var/lib/apt/lists/* \
-&& apt-get clean
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+		curl \
+		wget \
+		gnupg2 \
+		lsb-release \
+		ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
 RUN apt-get update && apt-get install -y software-properties-common
-
 RUN add-apt-repository universe
 
 # Add ROS2 apt repository
 RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg
-RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2-testing/ubuntu $(source /etc/os-release && echo $UBUNTU_CODENAME) main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null
+RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null
+
 
 # Common dev tools and ROS tools
 # ROS fundamentals
-RUN apt-get update && apt-get install -y \
-        build-essential \
-        git \
-        python3-colcon-common-extensions \
-        python3-pip \
-        python3-pybind11 \
-        python3-pytest-cov \
-        python3-rosdep \
-        python3-rosinstall-generator \
-        python3-setuptools \
-        python3-vcstool \
-        wget \
-&& rm -rf /var/lib/apt/lists/* \
-&& apt-get clean
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+		build-essential \
+		cmake \
+		git \
+		libbullet-dev \
+		libpython3-dev \
+		python3-colcon-common-extensions \
+		python3-flake8 \
+		python3-pip \
+		python3-numpy \
+		python3-pytest-cov \
+		python3-rosdep \
+		python3-setuptools \
+		python3-vcstool \
+		python3-rosinstall-generator \
+		libasio-dev \
+		libtinyxml2-dev \
+		libcunit1-dev \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
 # ROS Python fundamentals
 RUN python3 -m pip install -U \
@@ -91,113 +113,97 @@ RUN python3 -m pip install -U \
         flake8-quotes \
         pytest-repeat \
         pytest-rerunfailures \
-        pytest \
-        setuptools
+        pytest 
 
-# Avoid setup.py and easy_install deprecation warnings caused by colcon and setuptools
-# https://github.com/colcon/colcon-core/issues/454
-ENV PYTHONWARNINGS=ignore:::setuptools.command.install,ignore:::setuptools.command.easy_install,ignore:::pkg_resources
-RUN echo "Warning: Using the PYTHONWARNINGS environment variable to silence setup.py and easy_install deprecation warnings caused by colcon"
 
-ARG ROS_DISTRO=humble
-ENV ROS_ROOT=/opt/ros/${ROS_DISTRO}
+# Upgrade cmake - https://stackoverflow.com/a/56690743
+# This is needed to build some of the ROS2 packages
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+		  software-properties-common \
+		  apt-transport-https \
+		  ca-certificates \
+		  gnupg \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+		  	  
+RUN wget -qO - https://apt.kitware.com/keys/kitware-archive-latest.asc | apt-key add - && \
+    apt-add-repository "deb https://apt.kitware.com/ubuntu/ $(lsb_release -cs) main" && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends --only-upgrade \
+            cmake \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+    
+RUN cmake --version
+
+# remove other versions of Python3
+# workaround for 'Could NOT find Python3 (missing: Python3_NumPy_INCLUDE_DIRS Development)'
+
+RUN apt purge -y python3.9 libpython3.9* || echo "python3.9 not found, skipping removal" && \
+    ls -ll /usr/bin/python*
 
 # Build ROS2 core from source
 RUN mkdir -p ${ROS_ROOT}/src && \
 	cd ${ROS_ROOT} && \
 	# https://answers.ros.org/question/325245/minimal-ros2-installation/?answer=325249#post-id-325249
-    	rosinstall_generator --deps --rosdistro ${ROS_DISTRO} ros_base \
-        	angles \
-        	apriltag \
-        	behaviortree_cpp_v3 \
-        	bondcpp \
-        	camera_calibration_parsers \
-        	camera_info_manager \
-        	compressed_image_transport \
-        	compressed_depth_image_transport \
-        	cv_bridge \
-        	demo_nodes_cpp \
-        	demo_nodes_py \
-        	diagnostic_updater \
-        	example_interfaces \
-        	image_geometry \
-        	image_pipeline \
-        	image_transport \
-        	image_transport_plugins \
+    	rosinstall_generator --deps --rosdistro ${ROS_DISTRO} ${ROS_PKG} \
         	launch_xml \
-        	launch_yaml \
-        	launch_testing \
-        	launch_testing_ament_cmake \
-       		nav2_msgs \
-        	ompl \
-        	resource_retriever \
-        	rosbridge_suite \
-        	rqt_image_view \
-        	rviz2 \
-        	sensor_msgs \
-        	slam_toolbox \
-        	v4l2_camera \
-        	vision_opencv \
-        	vision_msgs \
-		> ros2.${ROS_DISTRO}.ros_base.rosinstall && \
-    	cat ros2.${ROS_DISTRO}.ros_base.rosinstall && \
-    	vcs import src < ros2.${ROS_DISTRO}.ros_base.rosinstall && \
-    	rm ${ROS_ROOT}/*.rosinstall && \
-    	cd ${ROS_ROOT} \
-    	&& apt-get update \
-    	&& rosdep init \
-    	&& rosdep update \
-    	&& rosdep install -y \
-      		--ignore-src \
-      		--from-paths src \
-      		--rosdistro ${ROS_DISTRO} \
-      		--skip-keys "fastcdr rti-connext-dds-6.0.1 rti-connext-dds-5.3.1 urdfdom_headers libopencv-dev libopencv-contrib-dev libopencv-imgproc-dev python-opencv python3-opencv" \
-    	&& rm -Rf /var/lib/apt/lists/* \
-    	&& apt-get clean && \ 
-    	cd ${ROS_ROOT} \
-    	&& colcon build --merge-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo --packages-up-to behaviortree_cpp_v3 \
-    	&& colcon build --merge-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-    	&& rm -Rf src build log
+		launch_yaml \
+		launch_testing \
+		launch_testing_ament_cmake \
+		demo_nodes_cpp \
+		demo_nodes_py \
+		example_interfaces \
+		camera_calibration_parsers \
+		camera_info_manager \
+		cv_bridge \
+		v4l2_camera \
+		vision_opencv \
+		vision_msgs \
+		image_geometry \
+		image_pipeline \
+		image_transport \
+		compressed_image_transport \
+		compressed_depth_image_transport \
+		> ros2.${ROS_DISTRO}.${ROS_PKG}.rosinstall && \
+    cat ros2.${ROS_DISTRO}.${ROS_PKG}.rosinstall && \
+    vcs import src < ros2.${ROS_DISTRO}.${ROS_PKG}.rosinstall && \
+    # https://github.com/dusty-nv/jetson-containers/issues/181
+    rm -r ${ROS_ROOT}/src/ament_cmake && \
+    git -C ${ROS_ROOT}/src/ clone https://github.com/ament/ament_cmake -b ${ROS_DISTRO} && \
+	# install dependencies using rosdep
+    apt-get update && \
+    cd ${ROS_ROOT} && \
+    rosdep init && \
+    rosdep update && \
+    rosdep install -y \
+    	--ignore-src \
+		--from-paths src \
+	  	--rosdistro ${ROS_DISTRO} \
+	  	--skip-keys "libopencv-dev libopencv-contrib-dev libopencv-imgproc-dev python-opencv python3-opencv" && \
+    rm -rf /var/lib/apt/lists/* && \
+    apt-get clean && \
+	# build it!
+    colcon build \
+        --merge-install \
+        --cmake-args -DCMAKE_BUILD_TYPE=Release && \
+    # remove build files
+    rm -rf ${ROS_ROOT}/src && \
+    rm -rf ${ROS_ROOT}/logs && \
+    rm -rf ${ROS_ROOT}/build && \
+    rm ${ROS_ROOT}/*.rosinstall
+    	
+# Set the default DDS middleware to cyclonedds
+# https://github.com/ros2/rclcpp/issues/1335
+ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+
+
+FROM build1 as build2
 
 # Alias setup.bash for consistency with pre-built binary installations of ROS2
 RUN echo "source /opt/ros/${ROS_DISTRO}/install/setup.bash ; export ROS_DISTRO=${ROS_DISTRO}" > /opt/ros/${ROS_DISTRO}/setup.bash
-    
-# Restore using the default Humble DDS middleware: FastRTPS
-ENV RMW_IMPLEMENTATION=rmw_fastrtps_cpp
-
-# Install negotiated
-RUN apt-get update && mkdir -p ${ROS_ROOT}/src && cd ${ROS_ROOT}/src \
-    	&& git clone https://github.com/osrf/negotiated && cd negotiated && git checkout master && cd .. \            
-    	&& source ${ROS_ROOT}/setup.bash && cd ${ROS_ROOT} \
-    	&& rosdep install -y -r --ignore-src --from-paths src --rosdistro ${ROS_DISTRO} \
-    	&& colcon build --merge-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo --packages-up-to-regex negotiated* \
-    	&& rm -Rf src logs build \
-    	&& rm -rf /var/lib/apt/lists/* \
-    	&& apt-get clean
-
-
-# change name to build1
-FROM builder as buildX
-
-# Build ROS2 core from source
-RUN mkdir -p ${ROS_ROOT}/src \
-	&& cd ${ROS_ROOT} \
-	&& vcs import --input https://raw.githubusercontent.com/ros2/ros2/humble/ros2.repos src
-
-RUN rosdep init && rosdep update
-RUN rosdep install --from-paths src --ignore-src -y --skip-keys "fastcdr rti-connext-dds-6.0.1 urdfdom_headers" \
-	&& rm -Rf /var/lib/apt/lists/* \
-	&& apt-get clean
-	
-RUN cd ${ROS_ROOT} \
-	&& colcon build --symlink-install \
-	&& rm -rf src build log
-
-# Alias setup.bash for consistency with pre-built binary installations of ROS2
-RUN echo "source /opt/ros/${ROS_DISTRO}/install/setup.bash ; export ROS_DISTRO=${ROS_DISTRO}" > /opt/ros/${ROS_DISTRO}/setup.bash
-
-
-FROM build1 AS build2
 
 # ROS environment 
 ARG ROS_DOMAIN_ID=0
@@ -215,6 +221,7 @@ RUN apt-get update && apt-get install -y \
 	libpython3-dev \
 	&& rm -rf /var/lib/apt/lists/*
 
+
 FROM build2 AS build3
 # code environment
 ENV SOURCE_DIR /home/workspaces
@@ -229,7 +236,7 @@ WORKDIR "${WS_DIR}"
 
 FROM build1 AS build2
 
-# Build packages
+# Build user packages
 RUN . /opt/ros/${ROS_DISTRO}/setup.bash \
 	&& colcon build
 
