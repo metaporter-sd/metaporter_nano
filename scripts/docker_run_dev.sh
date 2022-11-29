@@ -10,12 +10,14 @@ xauth nlist $DISPLAY | sed -e 's/^..../ffff/' | xauth -f $XAUTH nmerge -
 chmod 777 $XAUTH
 
 docker run --runtime nvidia -it --rm --network host \
+    --network host \
     -e DISPLAY=$DISPLAY \
     -v /tmp/.X11-unix/:/tmp/.X11-unix \
     -v $XAUTH:$XAUTH -e XAUTHORITY=$XAUTH \
     -v /tmp/argus_socket:/tmp/argus_socket \
     -v /home/metaporter/workspaces/metaporter_dev:/home/workspaces/metaporter_dev \
     $USER_VOLUME $CONTAINER_IMAGE $USER_COMMAND
+
 
 
 
